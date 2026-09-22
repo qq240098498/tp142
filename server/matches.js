@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { load, save, MAX_NOTE, MATCH_STATUS } = require('./store');
+const { load, save, MAX_NOTE, MATCH_STATUS, WEEKDAY_TEXT, weekdayOf, resolveVenueId } = require('./store');
 const { ApiError, pickText } = require('./errors');
 const { nameMaps } = require('./standings');
 
@@ -23,13 +23,6 @@ function checkDate(value) {
     throw new ApiError(400, 'DATE_INVALID', '这个日期不存在，请检查月份与日', 'date');
   }
   return date;
-}
-
-// 主场场地没填时按主队的主场算，用这块场地去判同日时间冲突
-function resolveVenueId(match, data) {
-  if (match.venueId) return match.venueId;
-  const home = data.teams.find((item) => item.id === match.homeTeamId);
-  return home ? home.venueId : '';
 }
 
 function validatePayload(input, data, selfId) {
@@ -98,14 +91,23 @@ function validatePayload(input, data, selfId) {
     throw new ApiError(409, 'ROUND_CONFLICT', `第 ${round} 轮里这两支球队已经各有一场了，同一轮不能重复出场`, 'round');
   }
 
-  // 同一天同一块场地不能挨得太近
+  // 场地不开放的星期当场拦下：场地留空时按主队主场算；取消的场次不占场地，放行为的是能把旧账结掉
   const resolved = resolveVenueId(candidate, data);
+  const venue = resolved ? data.venues.find((item) => item.id === resolved) : null;
+  if (venue && venue.weekdays.length > 0 && status !== '取消') {
+    const day = weekdayOf(date);
+    if (!venue.weekdays.includes(day)) {
+      const openDays = venue.weekdays.map((item) => WEEKDAY_TEXT[item]).join('、');
+      throw new ApiError(409, 'VENUE_CLOSED_DAY', `${venue.name} 只在 ${openDays} 开放，${date} 这天是${WEEKDAY_TEXT[day]}，请改到开放日或换场地`, 'date');
+    }
+  }
+
+  // 同一天同一块场地不能挨得太近
   if (resolved) {
     const sameDay = data.matches.filter((item) => item.id !== selfId && item.date === date
       && resolveVenueId(item, data) === resolved && item.status !== '取消');
     const clash = sameDay.find((item) => Math.abs(minutesOf(item.kickoff) - minutesOf(kickoff)) < MIN_GAP_MINUTES);
     if (clash) {
-      const venue = data.venues.find((item) => item.id === resolved);
       throw new ApiError(409, 'VENUE_TIME_CONFLICT', `${date} 这天 ${venue ? venue.name : '这块场地'} 的 ${clash.kickoff} 已经有一场了，两场之间至少隔两小时`, 'kickoff');
     }
   }

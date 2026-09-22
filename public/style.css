@@ -172,6 +172,8 @@ table.grid.standings td:nth-child(n+3) { font-family: Consolas, "Courier New", m
 .venue-card dt { color: var(--ink-soft); }
 .venue-card dd { margin: 0; }
 .venue-card .card-actions { display: flex; gap: 6px; margin-top: 10px; }
+.venue-offdays { margin-top: 10px; padding: 8px 10px; border-radius: 8px; background: var(--amber-soft); color: var(--amber); font-size: 12px; }
+.venue-offdays ul { margin: 4px 0 0; padding-left: 16px; color: var(--ink-soft); }
 
 /* 右侧抽屉 */
 .backdrop {

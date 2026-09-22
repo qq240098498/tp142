@@ -1,8 +1,6 @@
 const crypto = require('crypto');
-const { load, save, MAX_VENUE_NAME, MAX_NOTE } = require('./store');
+const { load, save, MAX_VENUE_NAME, MAX_NOTE, WEEKDAY_TEXT, weekdayOf, resolveVenueId } = require('./store');
 const { ApiError, pickText, isBlank } = require('./errors');
-
-const WEEKDAY_TEXT = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 
 function validatePayload(input, data, selfId) {
   const source = input && typeof input === 'object' ? input : {};
@@ -37,6 +35,30 @@ function validatePayload(input, data, selfId) {
   return { name, city, capacity, weekdays: weekdays.slice().sort((a, b) => a - b), note: pickText(source.note) };
 }
 
+// 落在可用日之外、还没了结的场次：可用日改小后靠这块清单提醒，只列出来，不替人改期
+function offDayMatches(venue, data) {
+  if (venue.weekdays.length === 0) return [];
+  const teamNames = new Map(data.teams.map((item) => [item.id, item.name]));
+  return data.matches
+    .filter((item) => (item.status === '待赛' || item.status === '延期')
+      && resolveVenueId(item, data) === venue.id)
+    .filter((item) => {
+      const day = weekdayOf(item.date);
+      return Number.isInteger(day) && !venue.weekdays.includes(day);
+    })
+    .sort((a, b) => (a.date < b.date ? -1 : 1) || (a.kickoff < b.kickoff ? -1 : 1))
+    .map((item) => ({
+      id: item.id,
+      round: item.round,
+      date: item.date,
+      kickoff: item.kickoff,
+      status: item.status,
+      weekdayText: WEEKDAY_TEXT[weekdayOf(item.date)],
+      homeName: teamNames.get(item.homeTeamId) || '未知球队',
+      awayName: teamNames.get(item.awayTeamId) || '未知球队',
+    }));
+}
+
 function withExtras(venue, data) {
   const homeTeams = data.teams.filter((item) => item.venueId === venue.id);
   const matches = data.matches.filter((item) => item.venueId === venue.id).length;
@@ -46,6 +68,7 @@ function withExtras(venue, data) {
     homeTeams: homeTeams.map((item) => item.name),
     homeTeamCount: homeTeams.length,
     matchCount: matches,
+    offDayMatches: offDayMatches(venue, data),
   };
 }
 

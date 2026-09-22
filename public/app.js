@@ -178,6 +178,10 @@ function renderVenues() {
         <dt>主场球队</dt><dd>${item.homeTeams.length ? escapeHtml(item.homeTeams.join('、')) : '无'}</dd>
         <dt>已排场次</dt><dd>${item.matchCount} 场</dd>
       </dl>
+      ${item.offDayMatches && item.offDayMatches.length ? `<div class="venue-offdays">
+        <b>有 ${item.offDayMatches.length} 场落在可用日之外，请改期或换场地：</b>
+        <ul>${item.offDayMatches.map((match) => `<li>第 ${match.round} 轮 · ${escapeHtml(match.date)}（${escapeHtml(match.weekdayText)}）${escapeHtml(match.kickoff)}　${escapeHtml(match.homeName)} vs ${escapeHtml(match.awayName)}</li>`).join('')}</ul>
+      </div>` : ''}
       <div class="card-actions">
         <button type="button" class="mini" data-edit-venue="${escapeHtml(item.id)}">编辑</button>
         <button type="button" class="mini danger" data-del-venue="${escapeHtml(item.id)}">删除</button>
@@ -360,9 +364,13 @@ async function submitDrawer() {
       await Promise.all([loadTeams(), loadSummary()]);
     } else if (entity === 'venue') {
       const body = { ...payload, capacity: Number(payload.capacity), weekdays: days };
-      if (mode === 'edit') await request(`/api/venues/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(body) });
-      else await request('/api/venues', { method: 'POST', body: JSON.stringify(body) });
+      const saved = mode === 'edit'
+        ? await request(`/api/venues/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(body) })
+        : await request('/api/venues', { method: 'POST', body: JSON.stringify(body) });
       toast(mode === 'edit' ? '场地已保存' : '场地已新增', 'ok');
+      if (saved.offDayMatches && saved.offDayMatches.length > 0) {
+        toast(`注意：有 ${saved.offDayMatches.length} 场比赛落在可用日之外，已在场地卡片上列出`, 'bad');
+      }
       await Promise.all([loadVenues(), loadTeams()]);
     } else if (entity === 'match') {
       if (mode === 'result') {

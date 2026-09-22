@@ -12,6 +12,20 @@ const MAX_VENUE_NAME = 30;
 const MAX_NOTE = 200;
 const MAX_TEAMS = 12;
 const STATUS_POOL = ['待赛', '已赛', '延期', '取消'];
+const WEEKDAY_TEXT = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+
+// 由 2026-03-14 这样的日期算出星期几，0 是周日、6 是周六；日期不合法时得到 NaN
+function weekdayOf(date) {
+  const [year, month, day] = String(date).split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+}
+
+// 赛程没指场地时按主队的主场算，可用日与时间冲突都用这块场地来判
+function resolveVenueId(match, data) {
+  if (match.venueId) return match.venueId;
+  const home = data.teams.find((item) => item.id === match.homeTeamId);
+  return home ? home.venueId : '';
+}
 
 // 初始数据：八支球队、四个场地（其中两支球队共用中立体育场）、七轮单循环共二十八场，
 // 前三轮已经打完并记了比分，第四轮有一场延期，其余待赛
@@ -211,6 +225,9 @@ module.exports = {
   MAX_VENUE_NAME,
   MAX_NOTE,
   MAX_TEAMS,
+  WEEKDAY_TEXT,
+  weekdayOf,
+  resolveVenueId,
   MATCH_STATUS: ['待赛', '已赛', '延期', '取消'],
   TEAM_STATUS: ['参赛', '退赛'],
   DATA_FILE,
