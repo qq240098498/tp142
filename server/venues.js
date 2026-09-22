@@ -37,15 +37,55 @@ function validatePayload(input, data, selfId) {
   return { name, city, capacity, weekdays: weekdays.slice().sort((a, b) => a - b), note: pickText(source.note) };
 }
 
+// 赛程实际使用的场地：显式指定用指定的，留空则落到主队主场（与赛程校验口径一致）
+function effectiveVenueId(match, data) {
+  if (match.venueId) return match.venueId;
+  const home = data.teams.find((item) => item.id === match.homeTeamId);
+  return home ? home.venueId : '';
+}
+
+function weekdayOf(dateText) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateText || '');
+  if (!match) return -1;
+  const [, year, month, day] = match.map(Number);
+  const probe = new Date(Date.UTC(year, month - 1, day));
+  if (probe.getUTCFullYear() !== year || probe.getUTCMonth() !== month - 1 || probe.getUTCDate() !== day) return -1;
+  return probe.getUTCDay();
+}
+
+// 可用日收窄后，落在新不可用日上的旧比赛：只列出来提醒，不改动这些赛程
+function weekdayConflictsOf(venue, data) {
+  const teamNames = new Map(data.teams.map((item) => [item.id, item.name]));
+  return data.matches
+    .filter((item) => item.status !== '取消' && effectiveVenueId(item, data) === venue.id)
+    .map((item) => ({ match: item, weekday: weekdayOf(item.date) }))
+    .filter((entry) => entry.weekday !== -1 && !venue.weekdays.includes(entry.weekday))
+    .sort((a, b) => (a.match.round - b.match.round) || (a.match.date < b.match.date ? -1 : 1))
+    .map((entry) => ({
+      id: entry.match.id,
+      round: entry.match.round,
+      date: entry.match.date,
+      kickoff: entry.match.kickoff,
+      weekdayText: WEEKDAY_TEXT[entry.weekday],
+      homeName: teamNames.get(entry.match.homeTeamId) || '未知球队',
+      awayName: teamNames.get(entry.match.awayTeamId) || '未知球队',
+      status: entry.match.status,
+      explicit: Boolean(entry.match.venueId),
+    }));
+}
+
 function withExtras(venue, data) {
   const homeTeams = data.teams.filter((item) => item.venueId === venue.id);
-  const matches = data.matches.filter((item) => item.venueId === venue.id).length;
+  const matches = data.matches.filter((item) => effectiveVenueId(item, data) === venue.id);
+  const weekdayConflicts = weekdayConflictsOf(venue, data);
   return {
     ...venue,
     weekdaysText: venue.weekdays.map((day) => WEEKDAY_TEXT[day]).join('、'),
     homeTeams: homeTeams.map((item) => item.name),
     homeTeamCount: homeTeams.length,
-    matchCount: matches,
+    matchCount: matches.length,
+    weekdayConflicts,
+    weekdayConflictCount: weekdayConflicts.length,
   };
 }
 

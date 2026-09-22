@@ -48,8 +48,11 @@ function seedData() {
   const matches = [];
   const rounds = 7;
   let counter = 0;
+  const firstRoundDate = new Date(Date.UTC(2026, 2, 7)); // 2026-03-07 周六
   for (let round = 1; round <= rounds; round += 1) {
-    const date = `2026-03-${String(7 + (round - 1) * 7).padStart(2, '0')}`;
+    const roundDate = new Date(firstRoundDate);
+    roundDate.setUTCDate(roundDate.getUTCDate() + (round - 1) * 7);
+    const date = roundDate.toISOString().slice(0, 10);
     for (let i = 0; i < order.length / 2; i += 1) {
       const home = order[i];
       const away = order[order.length - 1 - i];

@@ -172,6 +172,20 @@ table.grid.standings td:nth-child(n+3) { font-family: Consolas, "Courier New", m
 .venue-card dt { color: var(--ink-soft); }
 .venue-card dd { margin: 0; }
 .venue-card .card-actions { display: flex; gap: 6px; margin-top: 10px; }
+.venue-card.has-warn { border-color: #e9c082; }
+.warn-text { color: var(--amber); }
+.venue-warn {
+  margin-top: 10px; padding: 9px 10px; border-radius: 10px;
+  background: var(--amber-soft); border: 1px solid #ecd3a4;
+  font-size: 12.5px;
+}
+.venue-warn strong { display: block; color: #8a5a12; margin-bottom: 6px; }
+.venue-warn ul { list-style: none; margin: 0 0 6px; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.venue-warn li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; color: #6f4b10; }
+.venue-warn .round-tag { font-size: 11px; color: var(--amber); background: #fff; border-radius: 6px; padding: 1px 6px; }
+.venue-warn .pill { font-size: 11px; }
+.venue-warn .via-home { font-style: normal; font-size: 11px; color: #a1773a; border: 1px solid #e3c79a; border-radius: 6px; padding: 0 5px; }
+.venue-warn .hint { font-size: 11.5px; }
 
 /* 右侧抽屉 */
 .backdrop {

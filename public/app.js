@@ -169,20 +169,37 @@ function renderTeams() {
 }
 
 function renderVenues() {
-  el('venue-grid').innerHTML = state.venues.map((item) => `<article class="venue-card">
+  el('venue-grid').innerHTML = state.venues.map((item) => {
+    const conflicts = item.weekdayConflicts || [];
+    const warnHtml = conflicts.length ? `
+      <div class="venue-warn">
+        <strong>有 ${conflicts.length} 场排在这块场地不开放的星期：</strong>
+        <ul>
+          ${conflicts.map((m) => `<li>
+            <span class="round-tag">第 ${m.round} 轮</span>
+            ${escapeHtml(m.date)}（${escapeHtml(m.weekdayText)}）${escapeHtml(m.kickoff)}
+            ${escapeHtml(m.homeName)} vs ${escapeHtml(m.awayName)}
+            ${statusPill(m.status)}${m.explicit ? '' : '<em class="via-home">按主队主场</em>'}
+          </li>`).join('')}
+        </ul>
+        <span class="hint">仅列出提醒，不会自动改动这些赛程</span>
+      </div>` : '';
+    return `<article class="venue-card${conflicts.length ? ' has-warn' : ''}">
       <h3>${escapeHtml(item.name)}</h3>
       <div class="city">${escapeHtml(item.city)}</div>
       <dl>
         <dt>容量</dt><dd>${item.capacity} 人</dd>
         <dt>可用日</dt><dd>${escapeHtml(item.weekdaysText)}</dd>
         <dt>主场球队</dt><dd>${item.homeTeams.length ? escapeHtml(item.homeTeams.join('、')) : '无'}</dd>
-        <dt>已排场次</dt><dd>${item.matchCount} 场</dd>
+        <dt>已排场次</dt><dd>${item.matchCount} 场${item.weekdayConflictCount ? `，<b class="warn-text">${item.weekdayConflictCount} 场落在不开放日</b>` : ''}</dd>
       </dl>
+      ${warnHtml}
       <div class="card-actions">
         <button type="button" class="mini" data-edit-venue="${escapeHtml(item.id)}">编辑</button>
         <button type="button" class="mini danger" data-del-venue="${escapeHtml(item.id)}">删除</button>
       </div>
-    </article>`).join('');
+    </article>`;
+  }).join('');
   el('venue-empty').classList.toggle('show', state.venues.length === 0);
 }
 

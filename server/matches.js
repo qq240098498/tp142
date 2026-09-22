@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const { load, save, MAX_NOTE, MATCH_STATUS } = require('./store');
 const { ApiError, pickText } = require('./errors');
 const { nameMaps } = require('./standings');
+const { WEEKDAY_TEXT } = require('./venues');
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -98,15 +99,26 @@ function validatePayload(input, data, selfId) {
     throw new ApiError(409, 'ROUND_CONFLICT', `第 ${round} 轮里这两支球队已经各有一场了，同一轮不能重复出场`, 'round');
   }
 
-  // 同一天同一块场地不能挨得太近
+  // 同一天同一块场地不能挨得太近；场地留空时按主队主场算，同样要核对那块场地的开放日
   const resolved = resolveVenueId(candidate, data);
   if (resolved) {
+    const venue = data.venues.find((item) => item.id === resolved);
+    // 已赛是既成历史、取消不再占用场地，二者都不需要再排期；待赛与延期仍要安排到开放日
+    if (venue && status !== '取消' && status !== '已赛') {
+      const [year, month, day] = date.split('-').map(Number);
+      const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+      if (!venue.weekdays.includes(weekday)) {
+        const openText = venue.weekdays.slice().sort((a, b) => a - b).map((dayValue) => WEEKDAY_TEXT[dayValue]).join('、');
+        throw new ApiError(409, 'VENUE_WEEKDAY_CLOSED',
+          `${date} 是${WEEKDAY_TEXT[weekday]}，${venue.name} 只在${openText}开放，这一场排不进去，请改日期或换场地`, 'date');
+      }
+    }
     const sameDay = data.matches.filter((item) => item.id !== selfId && item.date === date
       && resolveVenueId(item, data) === resolved && item.status !== '取消');
     const clash = sameDay.find((item) => Math.abs(minutesOf(item.kickoff) - minutesOf(kickoff)) < MIN_GAP_MINUTES);
     if (clash) {
-      const venue = data.venues.find((item) => item.id === resolved);
-      throw new ApiError(409, 'VENUE_TIME_CONFLICT', `${date} 这天 ${venue ? venue.name : '这块场地'} 的 ${clash.kickoff} 已经有一场了，两场之间至少隔两小时`, 'kickoff');
+      const clashVenue = data.venues.find((item) => item.id === resolved);
+      throw new ApiError(409, 'VENUE_TIME_CONFLICT', `${date} 这天 ${clashVenue ? clashVenue.name : '这块场地'} 的 ${clash.kickoff} 已经有一场了，两场之间至少隔两小时`, 'kickoff');
     }
   }
 
